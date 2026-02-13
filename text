@@ -1,12 +1,11 @@
-#include <GL/glew.h>
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
-#include <cstdio>
 
-// Vertex shader
+// Même vertex shader
 const char* vertexShaderSource = R"(
 #version 330 core
 layout (location = 0) in vec3 aPos;
@@ -26,7 +25,7 @@ void main() {
 }
 )";
 
-// Fragment shader
+// Même fragment shader
 const char* fragmentShaderSource = R"(
 #version 330 core
 in vec3 FragPos;
@@ -40,17 +39,14 @@ uniform vec3 lightColor;
 uniform vec3 objectColor;
 
 void main() {
-    // Ambient
     float ambientStrength = 0.1;
     vec3 ambient = ambientStrength * lightColor;
     
-    // Diffuse
     vec3 norm = normalize(Normal);
     vec3 lightDir = normalize(lightPos - FragPos);
     float diff = max(dot(norm, lightDir), 0.0);
     vec3 diffuse = diff * lightColor;
     
-    // Specular
     float specularStrength = 0.5;
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 reflectDir = reflect(-lightDir, norm);
@@ -62,13 +58,11 @@ void main() {
 }
 )";
 
-// Fonction pour compiler un shader
 GLuint compileShader(GLenum type, const char* source) {
     GLuint shader = glCreateShader(type);
     glShaderSource(shader, 1, &source, nullptr);
     glCompileShader(shader);
     
-    // Vérifier les erreurs de compilation
     int success;
     char infoLog[512];
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -79,74 +73,42 @@ GLuint compileShader(GLenum type, const char* source) {
     return shader;
 }
 
-// Fonction pour vérifier les erreurs OpenGL
-void checkOpenGLError(const char* function) {
-    GLenum error = glGetError();
-    if (error != GL_NO_ERROR) {
-        std::cerr << "OpenGL Error dans " << function << " : " << error << std::endl;
-    }
-}
-
 int main() {
     std::cout << "Démarrage du programme..." << std::endl;
     
-    // Initialisation GLFW
     if (!glfwInit()) {
         std::cerr << "Erreur initialisation GLFW" << std::endl;
         return -1;
     }
-    std::cout << "GLFW initialisé avec succès" << std::endl;
     
-    // Spécifier la version OpenGL
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // Important pour certains systèmes
     
-    // Création de la fenêtre
     GLFWwindow* window = glfwCreateWindow(800, 600, "Cube 3D avec lumière", nullptr, nullptr);
     if (!window) {
         std::cerr << "Erreur création fenêtre" << std::endl;
         glfwTerminate();
         return -1;
     }
-    std::cout << "Fenêtre créée avec succès" << std::endl;
     
     glfwMakeContextCurrent(window);
-    std::cout << "Contexte OpenGL rendu courant" << std::endl;
     
-    // Activer GLEW experimental (nécessaire pour OpenGL core profile)
-    glewExperimental = GL_TRUE;
-    std::cout << "GLEW experimental activé" << std::endl;
-    
-    // Initialisation GLEW
-    GLenum err = glewInit();
-    if (err != GLEW_OK) {
-        std::cerr << "Erreur initialisation GLEW: " << glewGetErrorString(err) << std::endl;
+    // Initialisation GLAD au lieu de GLEW
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cerr << "Erreur initialisation GLAD" << std::endl;
         glfwTerminate();
         return -1;
     }
-    std::cout << "GLEW initialisé avec succès" << std::endl;
     
-    // Vider le tampon d'erreurs (parfois GLEW génère une erreur)
-    glGetError();
+    std::cout << "GLAD initialisé avec succès" << std::endl;
+    std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
+    std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
     
-    // Vérifier la version OpenGL
-    std::cout << "Informations OpenGL :" << std::endl;
-    std::cout << "  Version: " << glGetString(GL_VERSION) << std::endl;
-    std::cout << "  GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
-    std::cout << "  Vendor: " << glGetString(GL_VENDOR) << std::endl;
-    std::cout << "  Renderer: " << glGetString(GL_RENDERER) << std::endl;
-    
-    // Configuration du viewport
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-    glViewport(0, 0, width, height);
+    glViewport(0, 0, 800, 600);
     glEnable(GL_DEPTH_TEST);
-    std::cout << "Viewport configuré: " << width << "x" << height << std::endl;
     
-    // Création du programme shader
-    std::cout << "Compilation des shaders..." << std::endl;
+    // Compilation des shaders
     GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
     GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
     
@@ -155,15 +117,12 @@ int main() {
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
     
-    // Vérifier le linking
     int success;
     char infoLog[512];
     glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
     if (!success) {
         glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
-        std::cerr << "Erreur linking shader: " << infoLog << std::endl;
-    } else {
-        std::cout << "Shaders compilés et linkés avec succès" << std::endl;
+        std::cerr << "Erreur linking: " << infoLog << std::endl;
     }
     
     glDeleteShader(vertexShader);
@@ -171,7 +130,6 @@ int main() {
     
     // Données du cube
     float vertices[] = {
-        // Positions          // Normales
         -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
          0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
          0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
@@ -215,39 +173,26 @@ int main() {
         -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
     };
     
-    // Création du VAO et VBO
     GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
-    checkOpenGLError("glGenVertexArrays/glGenBuffers");
     
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    checkOpenGLError("glBufferData");
     
-    // Position attribute
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     
-    // Normal attribute
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-    checkOpenGLError("glVertexAttribPointer");
     
-    std::cout << "VAO/VBO configurés avec succès" << std::endl;
-    std::cout << "Démarrage de la boucle principale..." << std::endl;
-    
-    // Boucle principale
     while (!glfwWindowShouldClose(window)) {
-        // Nettoyer l'écran
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
-        // Utiliser le shader
         glUseProgram(shaderProgram);
         
-        // Matrices de transformation
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.5f, 1.0f, 0.0f));
         
@@ -264,16 +209,10 @@ int main() {
             100.0f
         );
         
-        // Envoyer les matrices au shader
-        GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
-        GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
-        GLuint projLoc = glGetUniformLocation(shaderProgram, "projection");
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-        
-        // Position de la lumière (au-dessus)
         glm::vec3 lightPos(0.0f, 2.0f, 0.0f);
         glm::vec3 viewPos(3.0f, 2.0f, 3.0f);
         glm::vec3 lightColor(1.0f, 1.0f, 1.0f);
@@ -284,23 +223,16 @@ int main() {
         glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, glm::value_ptr(lightColor));
         glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, glm::value_ptr(objectColor));
         
-        // Dessiner le cube
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
-        checkOpenGLError("glDrawArrays");
         
-        // Échanger les buffers
         glfwSwapBuffers(window);
         glfwPollEvents();
         
-        // Vérifier si la touche Echap est pressée pour quitter
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             glfwSetWindowShouldClose(window, true);
     }
     
-    std::cout << "Fermeture du programme..." << std::endl;
-    
-    // Nettoyage
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteProgram(shaderProgram);
